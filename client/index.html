@@ -1,13 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
     <script type="text/babel" >
         "use strict";
-    
+        
+        let canvas;        
+        let ctx;     
+        let socket;        
+        let square = {
+          x: 0,
+          y: 0,
+          height: 50,
+          width: 50,
+        };       
+        
+        const user = `user${(Math.floor((Math.random()*1000)) + 1)}`
+        
+        let draws = {};
+        
+        const draw = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          let keys = Object.keys(draws);
+          
+          for(let i = 0; i < keys.length; i++){
+            const drawCall = draws[keys[i]];
+            
+            if(i == 0) ctx.fillStyle = 'black';
+            else ctx.fillStyle = 'red';
+           
+            ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
+          }
+        };            
+        
+        const update = () => {
+            const time = new Date().getTime();
+            draws[user].lastUpdate = time;
+            draws[user].x += 5;
+            socket.emit('draw', {name: user, coords: draws[user]});
+        };      
+        
+        const init = () => {
+            canvas = document.querySelector("#canvas");
+            ctx = canvas.getContext("2d");
+          
+            socket = io.connect();
+            socket.on('connect', () => {
+                console.log("connected");
+                let time = new Date().getTime();
+                let xPos = Math.floor(Math.random()*(480-50)+50);
+                let yPos = Math.floor(Math.random()*(480-50)+50);
+                draws[user] = {lastUpdate: time, x: xPos, y: yPos, width: 50, height: 50};
+                update();
+            });
+            socket.on('clientUpdate', (data) => {
+                if(!draws[data.name] || data.coords.lastUpdate > draws[data.name].lastUpdate) 
+                {
+                    draws[data.name] = data.coords;
+                }
+                draw();
+            });
+            socket.on('setup', (data) => {
+                draws = data;
+                draw();
+            });
+            setInterval(update, 500);
+        };
+        
+        window.onload = init;
     </script>
 </head>
 <body>
-
+     <canvas id="canvas" height="512" width="512">No canvas</canvas>
 </body>
 </html>
